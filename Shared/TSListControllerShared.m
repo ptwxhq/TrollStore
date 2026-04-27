@@ -2,6 +2,8 @@
 #import "TSUtil.h"
 #import "TSPresentationDelegate.h"
 
+static NSString* const kTrollStoreDownloadURLDefaultsKey = @"TrollStoreDownloadURL";
+
 @implementation TSListControllerShared
 
 - (BOOL)isTrollStore
@@ -25,68 +27,61 @@
 	}
 }
 
+- (void)setTrollStoreDownloadURLValue:(NSObject*)value specifier:(PSSpecifier*)specifier
+{
+	NSString* urlString = [(NSString*)value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+	[NSUserDefaults.standardUserDefaults setObject:urlString ?: @"" forKey:kTrollStoreDownloadURLDefaultsKey];
+}
+
+- (NSObject*)readTrollStoreDownloadURLValue:(PSSpecifier*)specifier
+{
+	return [NSUserDefaults.standardUserDefaults stringForKey:kTrollStoreDownloadURLDefaultsKey] ?: @"";
+}
+
 - (void)downloadTrollStoreAndRun:(void (^)(NSString* localTrollStoreTarPath))doHandler
 {
-	UIAlertController* urlAlert = [UIAlertController alertControllerWithTitle:@"Download TrollStore" message:@"Enter the TrollStore.tar download URL." preferredStyle:UIAlertControllerStyleAlert];
-	[urlAlert addTextFieldWithConfigurationHandler:^(UITextField* textField)
+	NSString* rawURLString = [NSUserDefaults.standardUserDefaults stringForKey:kTrollStoreDownloadURLDefaultsKey] ?: @"";
+	NSString* urlString = [rawURLString stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+	NSURL* trollStoreURL = [NSURL URLWithString:urlString];
+	if(!trollStoreURL || !trollStoreURL.scheme || !trollStoreURL.host)
 	{
-		textField.placeholder = @"https://example.com/TrollStore.tar";
-		textField.keyboardType = UIKeyboardTypeURL;
-		textField.autocapitalizationType = UITextAutocapitalizationTypeNone;
-		textField.autocorrectionType = UITextAutocorrectionTypeNo;
-		textField.clearButtonMode = UITextFieldViewModeWhileEditing;
-	}];
+		UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Error" message:@"Please enter a valid TrollStore.tar download URL." preferredStyle:UIAlertControllerStyleAlert];
+		UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
+		[errorAlert addAction:closeAction];
+		[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:nil];
+		return;
+	}
 
-	UIAlertAction* cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil];
-	[urlAlert addAction:cancelAction];
+	NSURLRequest* trollStoreRequest = [NSURLRequest requestWithURL:trollStoreURL];
+	[TSPresentationDelegate startActivity:@"Downloading TrollStore"];
 
-	UIAlertAction* downloadAction = [UIAlertAction actionWithTitle:@"Download" style:UIAlertActionStyleDefault handler:^(UIAlertAction* action)
+	NSURLSessionDownloadTask* downloadTask = [NSURLSession.sharedSession downloadTaskWithRequest:trollStoreRequest completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error)
 	{
-		NSString* urlString = [urlAlert.textFields.firstObject.text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-		NSURL* trollStoreURL = [NSURL URLWithString:urlString];
-		if(!trollStoreURL || !trollStoreURL.scheme || !trollStoreURL.host)
+		if(error)
 		{
-			UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Error" message:@"Please enter a valid download URL." preferredStyle:UIAlertControllerStyleAlert];
+			UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Error" message:[NSString stringWithFormat:@"Error downloading TrollStore: %@", error] preferredStyle:UIAlertControllerStyleAlert];
 			UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
 			[errorAlert addAction:closeAction];
-			[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:nil];
-			return;
-		}
 
-		NSURLRequest* trollStoreRequest = [NSURLRequest requestWithURL:trollStoreURL];
-		[TSPresentationDelegate startActivity:@"Downloading TrollStore"];
-
-		NSURLSessionDownloadTask* downloadTask = [NSURLSession.sharedSession downloadTaskWithRequest:trollStoreRequest completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error)
-		{
-			if(error)
+			dispatch_async(dispatch_get_main_queue(), ^
 			{
-				UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Error" message:[NSString stringWithFormat:@"Error downloading TrollStore: %@", error] preferredStyle:UIAlertControllerStyleAlert];
-				UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
-				[errorAlert addAction:closeAction];
-
-				dispatch_async(dispatch_get_main_queue(), ^
+				[TSPresentationDelegate stopActivityWithCompletion:^
 				{
-					[TSPresentationDelegate stopActivityWithCompletion:^
-					{
-						[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:nil];
-					}];
-				});
-			}
-			else
-			{
-				NSString* tarTmpPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"TrollStore.tar"];
-				[[NSFileManager defaultManager] removeItemAtPath:tarTmpPath error:nil];
-				[[NSFileManager defaultManager] copyItemAtPath:location.path toPath:tarTmpPath error:nil];
+					[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:nil];
+				}];
+			});
+		}
+		else
+		{
+			NSString* tarTmpPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"TrollStore.tar"];
+			[[NSFileManager defaultManager] removeItemAtPath:tarTmpPath error:nil];
+			[[NSFileManager defaultManager] copyItemAtPath:location.path toPath:tarTmpPath error:nil];
 
-				doHandler(tarTmpPath);
-			}
-		}];
-
-		[downloadTask resume];
+			doHandler(tarTmpPath);
+		}
 	}];
-	[urlAlert addAction:downloadAction];
 
-	[TSPresentationDelegate presentViewController:urlAlert animated:YES completion:nil];
+	[downloadTask resume];
 }
 
 - (void)_installTrollStoreComingFromUpdateFlow:(BOOL)update

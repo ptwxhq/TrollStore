@@ -61,6 +61,23 @@
 
 		BOOL isInstalled = trollStoreAppPath();
 
+		PSSpecifier* downloadGroupSpecifier = [PSSpecifier emptyGroupSpecifier];
+		downloadGroupSpecifier.name = @"Download";
+		[downloadGroupSpecifier setProperty:@"Enter a TrollStore.tar URL before installing or updating TrollStore." forKey:@"footerText"];
+		[_specifiers addObject:downloadGroupSpecifier];
+
+		PSSpecifier* downloadURLSpecifier = [PSSpecifier preferenceSpecifierNamed:@"TrollStore URL"
+											target:self
+											set:@selector(setTrollStoreDownloadURLValue:specifier:)
+											get:@selector(readTrollStoreDownloadURLValue:)
+											detail:nil
+											cell:PSEditTextCell
+											edit:nil];
+		downloadURLSpecifier.identifier = @"trollStoreDownloadURL";
+		[downloadURLSpecifier setProperty:@YES forKey:@"enabled"];
+		[downloadURLSpecifier setProperty:@"https://example.com/TrollStore.tar" forKey:@"placeholder"];
+		[_specifiers addObject:downloadURLSpecifier];
+
 		if(_newerVersion && isInstalled)
 		{
 			// Update TrollStore

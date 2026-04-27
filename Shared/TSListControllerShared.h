@@ -5,6 +5,8 @@
 @interface TSListControllerShared : PSListController
 - (BOOL)isTrollStore;
 - (NSString*)getTrollStoreVersion;
+- (void)setTrollStoreDownloadURLValue:(NSObject*)value specifier:(PSSpecifier*)specifier;
+- (NSObject*)readTrollStoreDownloadURLValue:(PSSpecifier*)specifier;
 - (void)downloadTrollStoreAndRun:(void (^)(NSString* localTrollStoreTarPath))doHandler;
 - (void)installTrollStorePressed;
 - (void)updateTrollStorePressed;
