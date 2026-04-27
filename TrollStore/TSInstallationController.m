@@ -215,44 +215,28 @@ extern NSUserDefaults* trollStoreUserDefaults(void);
 
 + (void)installLdid
 {
-	fetchLatestLdidVersion(^(NSString* latestVersion)
+	dispatch_async(dispatch_get_main_queue(), ^
 	{
-		if(!latestVersion) return;
-		dispatch_async(dispatch_get_main_queue(), ^
+		NSString* bundledLdidPath = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"ldid.bundled"];
+		if(![[NSFileManager defaultManager] fileExistsAtPath:bundledLdidPath])
 		{
-			NSURL* ldidURL = [NSURL URLWithString:@"https://github.com/opa334/ldid/releases/latest/download/ldid"];
-			NSURLRequest* ldidRequest = [NSURLRequest requestWithURL:ldidURL];
+			UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Error" message:@"Bundled ldid is missing from the TrollStore app." preferredStyle:UIAlertControllerStyleAlert];
+			UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
+			[errorAlert addAction:closeAction];
+			[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:nil];
+			return;
+		}
 
-			[TSPresentationDelegate startActivity:@"Installing ldid"];
+		[TSPresentationDelegate startActivity:@"Installing ldid"];
 
-			NSURLSessionDownloadTask* downloadTask = [NSURLSession.sharedSession downloadTaskWithRequest:ldidRequest completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error)
+		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
+		{
+			spawnRoot(rootHelperPath(), @[@"install-ldid", bundledLdidPath, @"bundled"], nil, nil);
+			dispatch_async(dispatch_get_main_queue(), ^
 			{
-				if(error)
-				{
-					UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Error" message:[NSString stringWithFormat:@"Error downloading ldid: %@", error] preferredStyle:UIAlertControllerStyleAlert];
-					UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
-					[errorAlert addAction:closeAction];
-
-					dispatch_async(dispatch_get_main_queue(), ^
-					{
-						[TSPresentationDelegate stopActivityWithCompletion:^
-						{
-							[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:nil];
-						}];
-					});
-				}
-				else if(location)
-				{
-					spawnRoot(rootHelperPath(), @[@"install-ldid", location.path, latestVersion], nil, nil);
-					dispatch_async(dispatch_get_main_queue(), ^
-					{
-						[TSPresentationDelegate stopActivityWithCompletion:nil];
-						[[NSNotificationCenter defaultCenter] postNotificationName:@"TrollStoreReloadSettingsNotification" object:nil userInfo:nil];
-					});
-				}
-			}];
-
-			[downloadTask resume];
+				[TSPresentationDelegate stopActivityWithCompletion:nil];
+				[[NSNotificationCenter defaultCenter] postNotificationName:@"TrollStoreReloadSettingsNotification" object:nil userInfo:nil];
+			});
 		});
 	});
 }

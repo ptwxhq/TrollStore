@@ -16,3 +16,6 @@ TrollStore_CFLAGS = -fobjc-arc -I../Shared -I$(shell brew --prefix)/opt/libarchi
 TrollStore_CODESIGN_FLAGS = --entitlements entitlements.plist
 
 include $(THEOS_MAKE_PATH)/application.mk
+
+after-stage::
+	@cp ../files/ldid $(THEOS_STAGING_DIR)/Applications/TrollStore.app/ldid.bundled

@@ -35,28 +35,6 @@ extern NSUserDefaults* trollStoreUserDefaults(void);
 		}
 	});
 
-	//if (@available(iOS 16, *)) {} else {
-		fetchLatestLdidVersion(^(NSString* latestVersion)
-		{
-			NSString* ldidVersionPath = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"ldid.version"];
-			NSString* ldidVersion = nil;
-			NSData* ldidVersionData = [NSData dataWithContentsOfFile:ldidVersionPath];
-			if(ldidVersionData)
-			{
-				ldidVersion = [[NSString alloc] initWithData:ldidVersionData encoding:NSUTF8StringEncoding];
-			}
-			
-			if(![latestVersion isEqualToString:ldidVersion])
-			{
-				_newerLdidVersion = latestVersion;
-				dispatch_async(dispatch_get_main_queue(), ^
-				{
-					[self reloadSpecifiers];
-				});
-			}
-		});
-	//}
-
 	if (@available(iOS 16, *))
 	{
 		_devModeEnabled = spawnRoot(rootHelperPath(), @[@"check-dev-mode"], nil, nil) == 0;
@@ -210,7 +188,7 @@ extern NSUserDefaults* trollStoreUserDefaults(void);
 			}
 			else
 			{
-				[signingGroupSpecifier setProperty:@"In order for TrollStore to be able to install unsigned IPAs, ldid has to be installed using this button. It can't be directly included in TrollStore because of licensing issues." forKey:@"footerText"];
+				[signingGroupSpecifier setProperty:@"In order for TrollStore to be able to install unsigned IPAs, the bundled ldid has to be installed using this button." forKey:@"footerText"];
 			}
 
 			[_specifiers addObject:signingGroupSpecifier];
@@ -233,22 +211,6 @@ extern NSUserDefaults* trollStoreUserDefaults(void);
 				[ldidInstalledSpecifier setProperty:@NO forKey:@"enabled"];
 				ldidInstalledSpecifier.identifier = @"ldidInstalled";
 				[_specifiers addObject:ldidInstalledSpecifier];
-
-				if(_newerLdidVersion && ![_newerLdidVersion isEqualToString:ldidVersion])
-				{
-					NSString* updateTitle = [NSString stringWithFormat:@"Update to %@", _newerLdidVersion];
-					PSSpecifier* ldidUpdateSpecifier = [PSSpecifier preferenceSpecifierNamed:updateTitle
-												target:self
-												set:nil
-												get:nil
-												detail:nil
-												cell:PSButtonCell
-												edit:nil];
-					ldidUpdateSpecifier.identifier = @"updateLdid";
-					[ldidUpdateSpecifier setProperty:@YES forKey:@"enabled"];
-					ldidUpdateSpecifier.buttonAction = @selector(installOrUpdateLdidPressed);
-					[_specifiers addObject:ldidUpdateSpecifier];
-				}
 			}
 			else
 			{
