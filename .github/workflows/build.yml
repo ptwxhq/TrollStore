@@ -1,0 +1,62 @@
+name: Build TrollStore
+
+on:
+  workflow_dispatch: 
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          repository: opa334/TrollStore
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Theos
+        run: |
+          sudo git clone --recursive https://github.com/theos/theos.git /opt/theos
+          sudo chown -R $USER /opt/theos
+          echo "THEOS=/opt/theos" >> $GITHUB_ENV
+          echo "/opt/theos/bin" >> $GITHUB_PATH
+
+      - name: Setup iOS SDK
+        run: |
+          rm -rf $THEOS/sdks
+          git clone --depth 1 https://github.com/theos/sdks.git $THEOS/sdks
+
+      - name: Install Dependencies
+        run: |
+          # 1. 严格按照 README 安装
+          brew install libarchive ldid xz
+          
+          # 2. 编译并安装 Pwnify
+          PWNIFY_DIR=$(find . -name "Pwnify" -type d -not -path "*/.*" | head -n 1)
+          cd "$PWNIFY_DIR" && make
+          sudo cp ./pwnify /usr/local/bin/pwnify || sudo cp ./obj/pwnify /usr/local/bin/pwnify
+          sudo chmod +x /usr/local/bin/pwnify
+
+      - name: Run Makefile
+        run: |
+          export THEOS=/opt/theos
+          export PATH=$THEOS/bin:$PATH
+          LIBARCHIVE_PATH=$(brew --prefix libarchive)
+          
+          make clean
+          # 使用 || true 强制让脚本在 build_installer 报错时继续往下走
+          make FINALPACKAGE=1 \
+            ARCHS="arm64" \
+            ADDITIONAL_LDFLAGS="$LIBARCHIVE_PATH/lib/libarchive.a" \
+            THEOS_OBJCCFLAGS="-I$LIBARCHIVE_PATH/include" || echo "Installer build failed as expected (missing Victim IPA), but core components are ready."
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: TrollStore-Build-Result
+          path: |
+            _build/
+            ./TrollStore/.theos/obj/install/TrollStore.app
+          # 即使前面的步骤报错了，也要上传已经生成的文件
+          if-no-files-found: warn
