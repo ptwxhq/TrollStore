@@ -27,20 +27,30 @@ static NSString* const kTrollStoreDownloadURLDefaultsKey = @"TrollStoreDownloadU
 	}
 }
 
-- (void)setTrollStoreDownloadURLValue:(NSObject*)value specifier:(PSSpecifier*)specifier
-{
-	NSString* urlString = [(NSString*)value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-	[NSUserDefaults.standardUserDefaults setObject:urlString ?: @"" forKey:kTrollStoreDownloadURLDefaultsKey];
-}
-
-- (NSObject*)readTrollStoreDownloadURLValue:(PSSpecifier*)specifier
+- (NSString*)trollStoreDownloadURL
 {
 	return [NSUserDefaults.standardUserDefaults stringForKey:kTrollStoreDownloadURLDefaultsKey] ?: @"";
 }
 
+- (void)setTrollStoreDownloadURL:(NSString*)urlString
+{
+	NSString* trimmedURLString = [urlString stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+	[NSUserDefaults.standardUserDefaults setObject:trimmedURLString ?: @"" forKey:kTrollStoreDownloadURLDefaultsKey];
+}
+
+- (void)setTrollStoreDownloadURLValue:(NSObject*)value specifier:(PSSpecifier*)specifier
+{
+	[self setTrollStoreDownloadURL:(NSString*)value];
+}
+
+- (NSObject*)readTrollStoreDownloadURLValue:(PSSpecifier*)specifier
+{
+	return [self trollStoreDownloadURL];
+}
+
 - (void)downloadTrollStoreAndRun:(void (^)(NSString* localTrollStoreTarPath))doHandler
 {
-	NSString* rawURLString = [NSUserDefaults.standardUserDefaults stringForKey:kTrollStoreDownloadURLDefaultsKey] ?: @"";
+	NSString* rawURLString = [self trollStoreDownloadURL];
 	NSString* urlString = [rawURLString stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
 	NSURL* trollStoreURL = [NSURL URLWithString:urlString];
 	if(!trollStoreURL || !trollStoreURL.scheme || !trollStoreURL.host)

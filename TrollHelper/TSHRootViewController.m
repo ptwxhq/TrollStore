@@ -13,6 +13,7 @@
 {
 	[super viewDidLoad];
 	TSPresentationDelegate.presentationViewController = self;
+	[self setupDownloadURLHeader];
 
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(reloadSpecifiers) name:UIApplicationWillEnterForegroundNotification object:nil];
 
@@ -29,6 +30,38 @@
 			});
 		}
 	});
+}
+
+- (void)setupDownloadURLHeader
+{
+	UIView* headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.tableView.bounds.size.width, 82)];
+	headerView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+
+	_downloadURLTextField = [[UITextField alloc] initWithFrame:CGRectInset(headerView.bounds, 16, 18)];
+	_downloadURLTextField.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	_downloadURLTextField.borderStyle = UITextBorderStyleRoundedRect;
+	_downloadURLTextField.placeholder = @"TrollStore.tar URL";
+	_downloadURLTextField.text = [self trollStoreDownloadURL];
+	_downloadURLTextField.keyboardType = UIKeyboardTypeURL;
+	_downloadURLTextField.returnKeyType = UIReturnKeyDone;
+	_downloadURLTextField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+	_downloadURLTextField.autocorrectionType = UITextAutocorrectionTypeNo;
+	_downloadURLTextField.clearButtonMode = UITextFieldViewModeWhileEditing;
+	[_downloadURLTextField addTarget:self action:@selector(downloadURLTextFieldChanged:) forControlEvents:UIControlEventEditingChanged];
+	[_downloadURLTextField addTarget:self action:@selector(downloadURLTextFieldDidEndOnExit:) forControlEvents:UIControlEventEditingDidEndOnExit];
+	[headerView addSubview:_downloadURLTextField];
+
+	self.tableView.tableHeaderView = headerView;
+}
+
+- (void)downloadURLTextFieldChanged:(UITextField*)textField
+{
+	[self setTrollStoreDownloadURL:textField.text];
+}
+
+- (void)downloadURLTextFieldDidEndOnExit:(UITextField*)textField
+{
+	[textField resignFirstResponder];
 }
 
 - (NSMutableArray*)specifiers
@@ -60,23 +93,6 @@
 		[_specifiers addObject:infoSpecifier];
 
 		BOOL isInstalled = trollStoreAppPath();
-
-		PSSpecifier* downloadGroupSpecifier = [PSSpecifier emptyGroupSpecifier];
-		downloadGroupSpecifier.name = @"Download";
-		[downloadGroupSpecifier setProperty:@"Enter a TrollStore.tar URL before installing or updating TrollStore." forKey:@"footerText"];
-		[_specifiers addObject:downloadGroupSpecifier];
-
-		PSSpecifier* downloadURLSpecifier = [PSSpecifier preferenceSpecifierNamed:@"TrollStore URL"
-											target:self
-											set:@selector(setTrollStoreDownloadURLValue:specifier:)
-											get:@selector(readTrollStoreDownloadURLValue:)
-											detail:nil
-											cell:PSEditTextCell
-											edit:nil];
-		downloadURLSpecifier.identifier = @"trollStoreDownloadURL";
-		[downloadURLSpecifier setProperty:@YES forKey:@"enabled"];
-		[downloadURLSpecifier setProperty:@"https://example.com/TrollStore.tar" forKey:@"placeholder"];
-		[_specifiers addObject:downloadURLSpecifier];
 
 		if(_newerVersion && isInstalled)
 		{
