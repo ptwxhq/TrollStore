@@ -11,5 +11,6 @@
 + (void)handleAppInstallFromRemoteURL:(NSURL*)remoteURL skipConfirmation:(BOOL)skipConfirmation completion:(void (^)(BOOL, NSError*))completion;
 
 + (void)installLdid;
++ (void)installLdidIfNeededWithCompletion:(void (^)(BOOL success))completion;
 
 @end

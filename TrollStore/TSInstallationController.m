@@ -229,8 +229,21 @@ extern NSUserDefaults* trollStoreUserDefaults(void);
 
 + (void)installLdid
 {
+	[self installLdidIfNeededWithCompletion:nil];
+}
+
++ (void)installLdidIfNeededWithCompletion:(void (^)(BOOL success))completion
+{
 	dispatch_async(dispatch_get_main_queue(), ^
 	{
+		NSString* ldidPath = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"ldid"];
+		NSString* ldidVersionPath = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"ldid.version"];
+		if([[NSFileManager defaultManager] fileExistsAtPath:ldidPath] && [[NSFileManager defaultManager] fileExistsAtPath:ldidVersionPath])
+		{
+			if(completion) completion(YES);
+			return;
+		}
+
 		NSString* bundledLdidPath = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"ldid.bundled"];
 		if(![[NSFileManager defaultManager] fileExistsAtPath:bundledLdidPath])
 		{
@@ -238,6 +251,7 @@ extern NSUserDefaults* trollStoreUserDefaults(void);
 			UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
 			[errorAlert addAction:closeAction];
 			[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:nil];
+			if(completion) completion(NO);
 			return;
 		}
 
@@ -245,11 +259,14 @@ extern NSUserDefaults* trollStoreUserDefaults(void);
 
 		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
 		{
-			spawnRoot(rootHelperPath(), @[@"install-ldid", bundledLdidPath, @"bundled"], nil, nil);
+			int ret = spawnRoot(rootHelperPath(), @[@"install-ldid", bundledLdidPath, @"bundled"], nil, nil);
 			dispatch_async(dispatch_get_main_queue(), ^
 			{
-				[TSPresentationDelegate stopActivityWithCompletion:nil];
-				[[NSNotificationCenter defaultCenter] postNotificationName:@"TrollStoreReloadSettingsNotification" object:nil userInfo:nil];
+				[TSPresentationDelegate stopActivityWithCompletion:^
+				{
+					[[NSNotificationCenter defaultCenter] postNotificationName:@"TrollStoreReloadSettingsNotification" object:nil userInfo:nil];
+					if(completion) completion(ret == 0);
+				}];
 			});
 		});
 	});
