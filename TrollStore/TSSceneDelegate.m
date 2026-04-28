@@ -188,7 +188,7 @@ static NSString* trollStoreLaunchInstallURLString(void)
 		{
 			dispatch_async(dispatch_get_main_queue(), ^
 			{
-				[TSInstallationController handleAppInstallFromRemoteURL:launchInstallURL completion:nil];
+				[TSInstallationController handleAppInstallFromRemoteURL:launchInstallURL skipConfirmation:YES completion:nil];
 			});
 		}
 	}

@@ -8,6 +8,7 @@
 + (void)handleAppInstallFromFile:(NSString*)pathToIPA completion:(void (^)(BOOL, NSError*))completion;
 
 + (void)handleAppInstallFromRemoteURL:(NSURL*)remoteURL completion:(void (^)(BOOL, NSError*))completion;
++ (void)handleAppInstallFromRemoteURL:(NSURL*)remoteURL skipConfirmation:(BOOL)skipConfirmation completion:(void (^)(BOOL, NSError*))completion;
 
 + (void)installLdid;
 

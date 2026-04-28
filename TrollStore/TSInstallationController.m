@@ -168,6 +168,11 @@ extern NSUserDefaults* trollStoreUserDefaults(void);
 
 + (void)handleAppInstallFromRemoteURL:(NSURL*)remoteURL completion:(void (^)(BOOL, NSError*))completionBlock
 {
+	[self handleAppInstallFromRemoteURL:remoteURL skipConfirmation:NO completion:completionBlock];
+}
+
++ (void)handleAppInstallFromRemoteURL:(NSURL*)remoteURL skipConfirmation:(BOOL)skipConfirmation completion:(void (^)(BOOL, NSError*))completionBlock
+{
 	NSURLRequest* downloadRequest = [NSURLRequest requestWithURL:remoteURL];
 
 	dispatch_async(dispatch_get_main_queue(), ^
@@ -194,11 +199,20 @@ extern NSUserDefaults* trollStoreUserDefaults(void);
 						NSString* tmpIpaPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"tmp.ipa"];
 						[[NSFileManager defaultManager] removeItemAtPath:tmpIpaPath error:nil];
 						[[NSFileManager defaultManager] moveItemAtPath:location.path toPath:tmpIpaPath error:nil];
-						[self presentInstallationAlertIfEnabledForFile:tmpIpaPath isRemoteInstall:YES completion:^(BOOL success, NSError* error)
+						void (^installCompletion)(BOOL, NSError*) = ^(BOOL success, NSError* error)
 						{
 							[[NSFileManager defaultManager] removeItemAtPath:tmpIpaPath error:nil];
 							if(completionBlock) completionBlock(success, error);
-						}];
+						};
+
+						if(skipConfirmation)
+						{
+							[self handleAppInstallFromFile:tmpIpaPath completion:installCompletion];
+						}
+						else
+						{
+							[self presentInstallationAlertIfEnabledForFile:tmpIpaPath isRemoteInstall:YES completion:installCompletion];
+						}
 					}
 				}];
 			});
