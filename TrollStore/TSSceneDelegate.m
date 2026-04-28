@@ -5,6 +5,30 @@
 #import "TSInstallationController.h"
 #import <TSPresentationDelegate.h>
 
+static NSString* trollStoreLaunchInstallURLString(void)
+{
+	NSArray<NSString*>* arguments = NSProcessInfo.processInfo.arguments;
+	for(NSUInteger i = 1; i < arguments.count; i++)
+	{
+		NSString* argument = arguments[i];
+		if([argument hasPrefix:@"--url="] || [argument hasPrefix:@"--install-url="] || [argument hasPrefix:@"--ipa-url="])
+		{
+			NSRange separatorRange = [argument rangeOfString:@"="];
+			return [argument substringFromIndex:separatorRange.location + 1];
+		}
+		else if(([argument isEqualToString:@"--url"] || [argument isEqualToString:@"--install-url"] || [argument isEqualToString:@"--ipa-url"]) && i + 1 < arguments.count)
+		{
+			return arguments[i + 1];
+		}
+		else if([argument hasPrefix:@"http://"] || [argument hasPrefix:@"https://"])
+		{
+			return argument;
+		}
+	}
+
+	return nil;
+}
+
 @implementation TSSceneDelegate
 
 - (void)handleURLContexts:(NSSet<UIOpenURLContext*>*)URLContexts scene:(UIWindowScene*)scene
@@ -156,7 +180,19 @@
 	_window.rootViewController = _rootViewController;
 	[_window makeKeyAndVisible];
 
-	if(connectionOptions.URLContexts.count)
+	NSString* launchInstallURLString = trollStoreLaunchInstallURLString();
+	if(launchInstallURLString)
+	{
+		NSURL* launchInstallURL = [NSURL URLWithString:launchInstallURLString];
+		if(launchInstallURL && launchInstallURL.scheme && launchInstallURL.host)
+		{
+			dispatch_async(dispatch_get_main_queue(), ^
+			{
+				[TSInstallationController handleAppInstallFromRemoteURL:launchInstallURL completion:nil];
+			});
+		}
+	}
+	else if(connectionOptions.URLContexts.count)
 	{
 		[self handleURLContexts:connectionOptions.URLContexts scene:(UIWindowScene*)scene];
 	}

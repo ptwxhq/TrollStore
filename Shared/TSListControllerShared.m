@@ -62,6 +62,11 @@ static NSString* const kTrollStoreDownloadURLDefaultsKey = @"TrollStoreDownloadU
 		return;
 	}
 
+	[self downloadTrollStoreFromURL:trollStoreURL andRun:doHandler];
+}
+
+- (void)downloadTrollStoreFromURL:(NSURL*)trollStoreURL andRun:(void (^)(NSString* localTrollStoreTarPath))doHandler
+{
 	NSURLRequest* trollStoreRequest = [NSURLRequest requestWithURL:trollStoreURL];
 	[TSPresentationDelegate startActivity:@"Downloading TrollStore"];
 
@@ -94,9 +99,10 @@ static NSString* const kTrollStoreDownloadURLDefaultsKey = @"TrollStoreDownloadU
 	[downloadTask resume];
 }
 
-- (void)_installTrollStoreComingFromUpdateFlow:(BOOL)update
+- (void)_installTrollStoreFromURL:(NSURL*)trollStoreURL comingFromUpdateFlow:(BOOL)update
 {
-	[self downloadTrollStoreAndRun:^(NSString* tmpTarPath)
+	[self setTrollStoreDownloadURL:trollStoreURL.absoluteString];
+	[self downloadTrollStoreFromURL:trollStoreURL andRun:^(NSString* tmpTarPath)
 	{
 		int ret = spawnRoot(rootHelperPath(), @[@"install-trollstore", tmpTarPath], nil, nil);
 		[[NSFileManager defaultManager] removeItemAtPath:tmpTarPath error:nil];
@@ -134,6 +140,33 @@ static NSString* const kTrollStoreDownloadURLDefaultsKey = @"TrollStoreDownloadU
 			});
 		}
 	}];
+}
+
+- (void)_installTrollStoreComingFromUpdateFlow:(BOOL)update
+{
+	NSString* rawURLString = [self trollStoreDownloadURL];
+	NSString* urlString = [rawURLString stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+	NSURL* trollStoreURL = [NSURL URLWithString:urlString];
+	if(!trollStoreURL || !trollStoreURL.scheme || !trollStoreURL.host)
+	{
+		UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Error" message:@"Please enter a valid TrollStore.tar download URL." preferredStyle:UIAlertControllerStyleAlert];
+		UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
+		[errorAlert addAction:closeAction];
+		[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:nil];
+		return;
+	}
+
+	[self _installTrollStoreFromURL:trollStoreURL comingFromUpdateFlow:update];
+}
+
+- (void)installTrollStoreFromRemoteURL:(NSURL*)remoteURL
+{
+	if(!remoteURL || !remoteURL.scheme || !remoteURL.host)
+	{
+		return;
+	}
+
+	[self _installTrollStoreFromURL:remoteURL comingFromUpdateFlow:NO];
 }
 
 - (void)installTrollStorePressed
