@@ -32,9 +32,19 @@
 	});
 }
 
+- (void)viewDidAppear:(BOOL)animated
+{
+	[super viewDidAppear:animated];
+	[self setupDownloadURLHeader];
+}
+
 - (void)setupDownloadURLHeader
 {
-	UIView* headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.tableView.bounds.size.width, 82)];
+	UITableView* tableView = [self valueForKey:@"_table"];
+	if(!tableView) return;
+	if(tableView.tableHeaderView) return;
+
+	UIView* headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, tableView.bounds.size.width, 82)];
 	headerView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
 
 	_downloadURLTextField = [[UITextField alloc] initWithFrame:CGRectInset(headerView.bounds, 16, 18)];
@@ -51,7 +61,7 @@
 	[_downloadURLTextField addTarget:self action:@selector(downloadURLTextFieldDidEndOnExit:) forControlEvents:UIControlEventEditingDidEndOnExit];
 	[headerView addSubview:_downloadURLTextField];
 
-	self.tableView.tableHeaderView = headerView;
+	tableView.tableHeaderView = headerView;
 }
 
 - (void)downloadURLTextFieldChanged:(UITextField*)textField
