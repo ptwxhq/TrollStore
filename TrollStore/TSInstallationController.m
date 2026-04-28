@@ -7,6 +7,27 @@
 
 extern NSUserDefaults* trollStoreUserDefaults(void);
 
+static BOOL TSShouldRetryDownloadError(NSError* error)
+{
+	if(!error || ![error.domain isEqualToString:NSURLErrorDomain])
+	{
+		return NO;
+	}
+
+	switch(error.code)
+	{
+		case NSURLErrorTimedOut:
+		case NSURLErrorCannotFindHost:
+		case NSURLErrorCannotConnectToHost:
+		case NSURLErrorNetworkConnectionLost:
+		case NSURLErrorDNSLookupFailed:
+		case NSURLErrorNotConnectedToInternet:
+			return YES;
+		default:
+			return NO;
+	}
+}
+
 @implementation TSInstallationController
 
 + (void)handleAppInstallFromFile:(NSString*)pathToIPA forceInstall:(BOOL)force completion:(void (^)(BOOL, NSError*))completionBlock
@@ -173,57 +194,79 @@ extern NSUserDefaults* trollStoreUserDefaults(void);
 
 + (void)handleAppInstallFromRemoteURL:(NSURL*)remoteURL skipConfirmation:(BOOL)skipConfirmation completion:(void (^)(BOOL, NSError*))completionBlock
 {
-	NSURLRequest* downloadRequest = [NSURLRequest requestWithURL:remoteURL];
+	NSURLRequest* downloadRequest = [NSURLRequest requestWithURL:remoteURL cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:60.0];
 
 	dispatch_async(dispatch_get_main_queue(), ^
 	{
-		NSURLSessionDownloadTask* downloadTask = [NSURLSession.sharedSession downloadTaskWithRequest:downloadRequest completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error)
+		__block BOOL cancelled = NO;
+		__block NSURLSessionDownloadTask* downloadTask = nil;
+		__block void (^startDownload)(NSUInteger attempt) = nil;
+		startDownload = ^(NSUInteger attempt)
 		{
-			dispatch_async(dispatch_get_main_queue(), ^
+			downloadTask = [NSURLSession.sharedSession downloadTaskWithRequest:downloadRequest completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error)
 			{
-				[TSPresentationDelegate stopActivityWithCompletion:^
+				if(error && !cancelled && attempt < 3 && TSShouldRetryDownloadError(error))
 				{
-					if(error)
+					NSLog(@"download failed with transient error %@, retrying (%lu/3)", error, (unsigned long)(attempt + 1));
+					dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(attempt * NSEC_PER_SEC)), dispatch_get_main_queue(), ^
 					{
-						UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Error" message:[NSString stringWithFormat:@"Error downloading app: %@", error] preferredStyle:UIAlertControllerStyleAlert];
-						UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
-						[errorAlert addAction:closeAction];
-
-						[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:^
+						if(!cancelled)
 						{
-							if(completionBlock) completionBlock(NO, error);
-						}];
-					}
-					else
+							startDownload(attempt + 1);
+						}
+					});
+					return;
+				}
+
+				dispatch_async(dispatch_get_main_queue(), ^
+				{
+					[TSPresentationDelegate stopActivityWithCompletion:^
 					{
-						NSString* tmpIpaPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"tmp.ipa"];
-						[[NSFileManager defaultManager] removeItemAtPath:tmpIpaPath error:nil];
-						[[NSFileManager defaultManager] moveItemAtPath:location.path toPath:tmpIpaPath error:nil];
-						void (^installCompletion)(BOOL, NSError*) = ^(BOOL success, NSError* error)
+						if(error)
 						{
-							[[NSFileManager defaultManager] removeItemAtPath:tmpIpaPath error:nil];
-							if(completionBlock) completionBlock(success, error);
-						};
+							UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Error" message:[NSString stringWithFormat:@"Error downloading app: %@", error] preferredStyle:UIAlertControllerStyleAlert];
+							UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
+							[errorAlert addAction:closeAction];
 
-						if(skipConfirmation)
-						{
-							[self handleAppInstallFromFile:tmpIpaPath completion:installCompletion];
+							[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:^
+							{
+								if(completionBlock) completionBlock(NO, error);
+							}];
 						}
 						else
 						{
-							[self presentInstallationAlertIfEnabledForFile:tmpIpaPath isRemoteInstall:YES completion:installCompletion];
+							NSString* tmpIpaPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"tmp.ipa"];
+							[[NSFileManager defaultManager] removeItemAtPath:tmpIpaPath error:nil];
+							[[NSFileManager defaultManager] moveItemAtPath:location.path toPath:tmpIpaPath error:nil];
+							void (^installCompletion)(BOOL, NSError*) = ^(BOOL success, NSError* error)
+							{
+								[[NSFileManager defaultManager] removeItemAtPath:tmpIpaPath error:nil];
+								if(completionBlock) completionBlock(success, error);
+							};
+
+							if(skipConfirmation)
+							{
+								[self handleAppInstallFromFile:tmpIpaPath completion:installCompletion];
+							}
+							else
+							{
+								[self presentInstallationAlertIfEnabledForFile:tmpIpaPath isRemoteInstall:YES completion:installCompletion];
+							}
 						}
-					}
-				}];
-			});
-		}];
+					}];
+				});
+			}];
+
+			[downloadTask resume];
+		};
 
 		[TSPresentationDelegate startActivity:@"Downloading" withCancelHandler:^
 		{
+			cancelled = YES;
 			[downloadTask cancel];
 		}];
 
-		[downloadTask resume];
+		startDownload(1);
 	});
 }
 
