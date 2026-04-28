@@ -13,7 +13,6 @@
 {
 	[super viewDidLoad];
 	TSPresentationDelegate.presentationViewController = self;
-	[self setupDownloadURLHeader];
 
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(reloadSpecifiers) name:UIApplicationWillEnterForegroundNotification object:nil];
 
@@ -38,29 +37,51 @@
 	[self setupDownloadURLHeader];
 }
 
+- (void)viewDidLayoutSubviews
+{
+	[super viewDidLayoutSubviews];
+	[self setupDownloadURLHeader];
+}
+
 - (void)setupDownloadURLHeader
 {
 	UITableView* tableView = [self valueForKey:@"_table"];
 	if(!tableView) return;
-	if(tableView.tableHeaderView) return;
 
-	UIView* headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, tableView.bounds.size.width, 82)];
+	CGFloat headerWidth = tableView.bounds.size.width;
+	if(headerWidth < 100) headerWidth = self.view.bounds.size.width;
+	if(headerWidth < 100) headerWidth = UIScreen.mainScreen.bounds.size.width;
+	if(headerWidth < 100) return;
+
+	UIView* headerView = tableView.tableHeaderView;
+	if(!headerView || headerView.tag != 33401)
+	{
+		headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, headerWidth, 82)];
+		headerView.tag = 33401;
+		headerView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+
+		_downloadURLTextField = [[UITextField alloc] initWithFrame:CGRectZero];
+		_downloadURLTextField.borderStyle = UITextBorderStyleRoundedRect;
+		_downloadURLTextField.placeholder = @"TrollStore.tar 下载地址";
+		_downloadURLTextField.text = [self trollStoreDownloadURL];
+		_downloadURLTextField.keyboardType = UIKeyboardTypeURL;
+		_downloadURLTextField.returnKeyType = UIReturnKeyDone;
+		_downloadURLTextField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+		_downloadURLTextField.autocorrectionType = UITextAutocorrectionTypeNo;
+		_downloadURLTextField.clearButtonMode = UITextFieldViewModeWhileEditing;
+		_downloadURLTextField.backgroundColor = UIColor.systemBackgroundColor;
+		[_downloadURLTextField addTarget:self action:@selector(downloadURLTextFieldChanged:) forControlEvents:UIControlEventEditingChanged];
+		[_downloadURLTextField addTarget:self action:@selector(downloadURLTextFieldDidEndOnExit:) forControlEvents:UIControlEventEditingDidEndOnExit];
+		[headerView addSubview:_downloadURLTextField];
+
+		tableView.tableHeaderView = headerView;
+	}
+
+	headerView.frame = CGRectMake(0, 0, headerWidth, 82);
 	headerView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
 
-	_downloadURLTextField = [[UITextField alloc] initWithFrame:CGRectInset(headerView.bounds, 16, 18)];
-	_downloadURLTextField.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-	_downloadURLTextField.borderStyle = UITextBorderStyleRoundedRect;
-	_downloadURLTextField.placeholder = @"TrollStore.tar 下载地址";
-	_downloadURLTextField.text = [self trollStoreDownloadURL];
-	_downloadURLTextField.keyboardType = UIKeyboardTypeURL;
-	_downloadURLTextField.returnKeyType = UIReturnKeyDone;
-	_downloadURLTextField.autocapitalizationType = UITextAutocapitalizationTypeNone;
-	_downloadURLTextField.autocorrectionType = UITextAutocorrectionTypeNo;
-	_downloadURLTextField.clearButtonMode = UITextFieldViewModeWhileEditing;
-	[_downloadURLTextField addTarget:self action:@selector(downloadURLTextFieldChanged:) forControlEvents:UIControlEventEditingChanged];
-	[_downloadURLTextField addTarget:self action:@selector(downloadURLTextFieldDidEndOnExit:) forControlEvents:UIControlEventEditingDidEndOnExit];
-	[headerView addSubview:_downloadURLTextField];
-
+	_downloadURLTextField.frame = CGRectMake(16, 18, MAX(headerWidth - 32, 0), 46);
+	_downloadURLTextField.autoresizingMask = UIViewAutoresizingFlexibleWidth;
 	tableView.tableHeaderView = headerView;
 }
 
