@@ -65,6 +65,19 @@ static NSString* const kTrollStoreDownloadURLDefaultsKey = @"TrollStoreDownloadU
 	[self downloadTrollStoreFromURL:trollStoreURL andRun:doHandler];
 }
 
+- (void)handleTrollStoreLaunchURLString:(NSString*)urlString
+{
+	if(!urlString)
+	{
+		return;
+	}
+
+	[self setTrollStoreDownloadURL:urlString];
+	[NSUserDefaults.standardUserDefaults synchronize];
+	[self reloadSpecifiers];
+	[self installTrollStoreFromRemoteURL:[NSURL URLWithString:[self trollStoreDownloadURL]]];
+}
+
 - (void)downloadTrollStoreFromURL:(NSURL*)trollStoreURL andRun:(void (^)(NSString* localTrollStoreTarPath))doHandler
 {
 	NSURLRequest* trollStoreRequest = [NSURLRequest requestWithURL:trollStoreURL];

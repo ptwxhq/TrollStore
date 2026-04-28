@@ -44,7 +44,7 @@ static NSString* trollHelperLaunchURLString(void)
 		dispatch_async(dispatch_get_main_queue(), ^
 		{
 			TSHRootViewController* rootViewController = (TSHRootViewController*)_rootViewController.topViewController;
-			[rootViewController installTrollStoreFromRemoteURL:[NSURL URLWithString:launchURLString]];
+			[rootViewController handleTrollStoreLaunchURLString:launchURLString];
 		});
 	}
 }

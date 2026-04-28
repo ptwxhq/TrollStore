@@ -10,6 +10,7 @@
 - (void)setTrollStoreDownloadURLValue:(NSObject*)value specifier:(PSSpecifier*)specifier;
 - (NSObject*)readTrollStoreDownloadURLValue:(PSSpecifier*)specifier;
 - (void)downloadTrollStoreAndRun:(void (^)(NSString* localTrollStoreTarPath))doHandler;
+- (void)handleTrollStoreLaunchURLString:(NSString*)urlString;
 - (void)installTrollStoreFromRemoteURL:(NSURL*)remoteURL;
 - (void)installTrollStorePressed;
 - (void)updateTrollStorePressed;
