@@ -40,7 +40,7 @@
 	_downloadURLTextField = [[UITextField alloc] initWithFrame:CGRectInset(headerView.bounds, 16, 18)];
 	_downloadURLTextField.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 	_downloadURLTextField.borderStyle = UITextBorderStyleRoundedRect;
-	_downloadURLTextField.placeholder = @"TrollStore.tar URL";
+	_downloadURLTextField.placeholder = @"TrollStore.tar 下载地址";
 	_downloadURLTextField.text = [self trollStoreDownloadURL];
 	_downloadURLTextField.keyboardType = UIKeyboardTypeURL;
 	_downloadURLTextField.returnKeyType = UIReturnKeyDone;
@@ -77,7 +77,7 @@
 		#endif
 
 		PSSpecifier* infoGroupSpecifier = [PSSpecifier emptyGroupSpecifier];
-		infoGroupSpecifier.name = @"Info";
+		infoGroupSpecifier.name = @"信息";
 		[_specifiers addObject:infoGroupSpecifier];
 
 		PSSpecifier* infoSpecifier = [PSSpecifier preferenceSpecifierNamed:@"TrollStore"
@@ -97,7 +97,7 @@
 		if(_newerVersion && isInstalled)
 		{
 			// Update TrollStore
-			PSSpecifier* updateTrollStoreSpecifier = [PSSpecifier preferenceSpecifierNamed:[NSString stringWithFormat:@"Update TrollStore to %@", _newerVersion]
+			PSSpecifier* updateTrollStoreSpecifier = [PSSpecifier preferenceSpecifierNamed:[NSString stringWithFormat:@"更新 TrollStore 到 %@", _newerVersion]
 										target:self
 										set:nil
 										get:nil
@@ -119,7 +119,7 @@
 
 		if(isInstalled || trollStoreInstalledAppContainerPaths().count)
 		{
-			PSSpecifier* refreshAppRegistrationsSpecifier = [PSSpecifier preferenceSpecifierNamed:@"Refresh App Registrations"
+			PSSpecifier* refreshAppRegistrationsSpecifier = [PSSpecifier preferenceSpecifierNamed:@"刷新 App 注册"
 												target:self
 												set:nil
 												get:nil
@@ -133,7 +133,7 @@
 		}
 		if(isInstalled)
 		{
-			PSSpecifier* uninstallTrollStoreSpecifier = [PSSpecifier preferenceSpecifierNamed:@"Uninstall TrollStore"
+			PSSpecifier* uninstallTrollStoreSpecifier = [PSSpecifier preferenceSpecifierNamed:@"卸载 TrollStore"
 										target:self
 										set:nil
 										get:nil
@@ -148,7 +148,7 @@
 		}
 		else
 		{
-			PSSpecifier* installTrollStoreSpecifier = [PSSpecifier preferenceSpecifierNamed:@"Install TrollStore"
+			PSSpecifier* installTrollStoreSpecifier = [PSSpecifier preferenceSpecifierNamed:@"安装 TrollStore"
 												target:self
 												set:nil
 												get:nil
@@ -247,11 +247,11 @@
 	NSString* version = [self getTrollStoreVersion];
 	if(!version)
 	{
-		return @"Not Installed";
+		return @"未安装";
 	}
 	else
 	{
-		return [NSString stringWithFormat:@"Installed, %@", version];
+		return [NSString stringWithFormat:@"已安装，%@", version];
 	}
 }
 
