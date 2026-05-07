@@ -119,6 +119,21 @@ static NSString* const kTrollStoreDownloadURLDefaultsKey = @"TrollStoreDownloadU
 	});
 }
 
+- (void)installBundledTrollStore
+{
+	NSString* bundledTarPath = [self bundledTrollStoreTarPath];
+	if(!bundledTarPath)
+	{
+		UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Error" message:@"No bundled TrollStore.tar is available." preferredStyle:UIAlertControllerStyleAlert];
+		UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
+		[errorAlert addAction:closeAction];
+		[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:nil];
+		return;
+	}
+
+	[self installTrollStoreFromLocalTarPath:bundledTarPath];
+}
+
 - (void)downloadTrollStoreAndRun:(void (^)(NSString* localTrollStoreTarPath))doHandler
 {
 	NSString* rawURLString = [self trollStoreDownloadURL];
@@ -231,7 +246,7 @@ static NSString* const kTrollStoreDownloadURLDefaultsKey = @"TrollStoreDownloadU
 	NSString* bundledTarPath = [self bundledTrollStoreTarPath];
 	if(![self isTrollStore] && bundledTarPath)
 	{
-		[self installTrollStoreFromLocalTarPath:bundledTarPath];
+		[self installBundledTrollStore];
 		return;
 	}
 

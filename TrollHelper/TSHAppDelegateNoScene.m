@@ -25,6 +25,21 @@ static NSString* trollHelperLaunchURLString(void)
 	return nil;
 }
 
+static BOOL trollHelperShouldInstallBundledTrollStore(void)
+{
+	NSArray<NSString*>* arguments = NSProcessInfo.processInfo.arguments;
+	for(NSUInteger i = 1; i < arguments.count; i++)
+	{
+		NSString* argument = arguments[i];
+		if([argument isEqualToString:@"--install-bundled-trollstore"] || [argument isEqualToString:@"--install-bundled"] || [argument isEqualToString:@"--bundled-trollstore"])
+		{
+			return YES;
+		}
+	}
+
+	return NO;
+}
+
 @implementation TSHAppDelegateNoScene
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
@@ -40,6 +55,14 @@ static NSString* trollHelperLaunchURLString(void)
 		{
 			TSHRootViewController* rootViewController = (TSHRootViewController*)_rootViewController.topViewController;
 			[rootViewController handleTrollStoreLaunchURLString:launchURLString];
+		});
+	}
+	else if(trollHelperShouldInstallBundledTrollStore())
+	{
+		dispatch_async(dispatch_get_main_queue(), ^
+		{
+			TSHRootViewController* rootViewController = (TSHRootViewController*)_rootViewController.topViewController;
+			[rootViewController installBundledTrollStore];
 		});
 	}
 
