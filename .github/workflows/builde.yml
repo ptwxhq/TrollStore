@@ -88,4 +88,3 @@ jobs:
           name: PersistenceHelper_Embedded
           path: _build/PersistenceHelper_Embedded
           if-no-files-found: error
-```
