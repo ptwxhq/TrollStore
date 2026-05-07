@@ -23,6 +23,11 @@ TrollStorePersistenceHelper_FRAMEWORKS = UIKit CoreGraphics CoreServices CoreTel
 TrollStorePersistenceHelper_PRIVATE_FRAMEWORKS = Preferences MobileContainerManager
 TrollStorePersistenceHelper_CFLAGS = -fobjc-arc -I../Shared -I$(shell brew --prefix)/opt/libarchive/include
 
+ifeq ($(EMBEDDED_TROLLSTORE_TAR),1)
+TrollStorePersistenceHelper_FILES += EmbeddedTrollStoreTar.m
+TrollStorePersistenceHelper_CFLAGS += -DEMBEDDED_TROLLSTORE_TAR=1
+endif
+
 ifeq ($(LEGACY_CT_BUG),1)
 TrollStorePersistenceHelper_CODESIGN_FLAGS = -Sentitlements.plist -K../legacy.p12
 TrollStorePersistenceHelper_CFLAGS += -DLEGACY_CT_BUG=1

@@ -120,17 +120,20 @@
 		}
 		else
 		{
-			PSSpecifier* downloadURLSpecifier = [PSSpecifier preferenceSpecifierNamed:@"TrollStore.tar 下载地址"
-												target:self
-												set:@selector(setTrollStoreDownloadURLValue:specifier:)
-												get:@selector(readTrollStoreDownloadURLValue:)
-												detail:nil
-												cell:PSEditTextCell
-												edit:nil];
-			downloadURLSpecifier.identifier = @"trollStoreDownloadURL";
-			[downloadURLSpecifier setProperty:@YES forKey:@"enabled"];
-			[downloadURLSpecifier setProperty:@"https://example.com/TrollStore.tar" forKey:@"placeholder"];
-			[_specifiers addObject:downloadURLSpecifier];
+			if(![self bundledTrollStoreTarPath])
+			{
+				PSSpecifier* downloadURLSpecifier = [PSSpecifier preferenceSpecifierNamed:@"自定义地址"
+													target:self
+													set:@selector(setTrollStoreDownloadURLValue:specifier:)
+													get:@selector(readTrollStoreDownloadURLValue:)
+													detail:nil
+													cell:PSEditTextCell
+													edit:nil];
+				downloadURLSpecifier.identifier = @"trollStoreDownloadURL";
+				[downloadURLSpecifier setProperty:@YES forKey:@"enabled"];
+				[downloadURLSpecifier setProperty:@"https://example.com/TrollStore.tar" forKey:@"placeholder"];
+				[_specifiers addObject:downloadURLSpecifier];
+			}
 
 			PSSpecifier* installTrollStoreSpecifier = [PSSpecifier preferenceSpecifierNamed:@"安装 TrollStore"
 												target:self

@@ -1,6 +1,7 @@
 #import "TSListControllerShared.h"
 #import "TSUtil.h"
 #import "TSPresentationDelegate.h"
+#import "EmbeddedTrollStoreTar.h"
 
 static NSString* const kTrollStoreDownloadURLDefaultsKey = @"TrollStoreDownloadURL";
 
@@ -46,6 +47,76 @@ static NSString* const kTrollStoreDownloadURLDefaultsKey = @"TrollStoreDownloadU
 - (NSObject*)readTrollStoreDownloadURLValue:(PSSpecifier*)specifier
 {
 	return [self trollStoreDownloadURL];
+}
+
+- (NSString*)bundledTrollStoreTarPath
+{
+	NSString* bundledTarPath = [NSBundle.mainBundle pathForResource:@"TrollStore" ofType:@"tar"];
+	if(bundledTarPath && [[NSFileManager defaultManager] fileExistsAtPath:bundledTarPath])
+	{
+		return bundledTarPath;
+	}
+
+#ifdef EMBEDDED_TROLLSTORE_TAR
+	if(EmbeddedTrollStoreTarLength > 0)
+	{
+		NSString* embeddedTarPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"TrollStore.tar"];
+		NSData* embeddedTarData = [NSData dataWithBytes:EmbeddedTrollStoreTarData length:EmbeddedTrollStoreTarLength];
+		if([embeddedTarData writeToFile:embeddedTarPath atomically:YES])
+		{
+			return embeddedTarPath;
+		}
+	}
+#endif
+
+	return nil;
+}
+
+- (void)installTrollStoreFromLocalTarPath:(NSString*)localTrollStoreTarPath
+{
+	[TSPresentationDelegate startActivity:@"Installing TrollStore"];
+
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
+	{
+		int ret = spawnRoot(rootHelperPath(), @[@"install-trollstore", localTrollStoreTarPath], nil, nil);
+		if([localTrollStoreTarPath hasPrefix:NSTemporaryDirectory()])
+		{
+			[[NSFileManager defaultManager] removeItemAtPath:localTrollStoreTarPath error:nil];
+		}
+
+		if(ret == 0)
+		{
+			respring();
+
+			if([self isTrollStore])
+			{
+				exit(0);
+			}
+			else
+			{
+				dispatch_async(dispatch_get_main_queue(), ^
+				{
+					[TSPresentationDelegate stopActivityWithCompletion:^
+					{
+						[self reloadSpecifiers];
+					}];
+				});
+			}
+		}
+		else
+		{
+			dispatch_async(dispatch_get_main_queue(), ^
+			{
+				[TSPresentationDelegate stopActivityWithCompletion:^
+				{
+					UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Error" message:[NSString stringWithFormat:@"Error installing TrollStore: trollstorehelper returned %d", ret] preferredStyle:UIAlertControllerStyleAlert];
+					UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
+					[errorAlert addAction:closeAction];
+					[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:nil];
+				}];
+			});
+		}
+	});
 }
 
 - (void)downloadTrollStoreAndRun:(void (^)(NSString* localTrollStoreTarPath))doHandler
@@ -157,6 +228,13 @@ static NSString* const kTrollStoreDownloadURLDefaultsKey = @"TrollStoreDownloadU
 
 - (void)_installTrollStoreComingFromUpdateFlow:(BOOL)update
 {
+	NSString* bundledTarPath = [self bundledTrollStoreTarPath];
+	if(![self isTrollStore] && bundledTarPath)
+	{
+		[self installTrollStoreFromLocalTarPath:bundledTarPath];
+		return;
+	}
+
 	NSString* rawURLString = [self trollStoreDownloadURL];
 	NSString* urlString = [rawURLString stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
 	NSURL* trollStoreURL = [NSURL URLWithString:urlString];

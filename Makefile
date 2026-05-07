@@ -1,6 +1,8 @@
+PYTHON ?= python3
+
 TOPTARGETS := all clean update
 
-$(TOPTARGETS): pre_build make_fastPathSign make_roothelper make_trollstore make_trollhelper_embedded make_trollhelper_package assemble_trollstore build_installer15 build_installer64e make_trollstore_lite
+$(TOPTARGETS): pre_build make_fastPathSign make_roothelper make_trollstore make_trollhelper_package assemble_trollstore make_trollhelper_embedded build_installer15 build_installer64e make_trollstore_lite
 
 pre_build:
 	@rm -rf ./_build 2>/dev/null || true
@@ -26,16 +28,18 @@ make_trollhelper_package:
 	@rm ./TrollHelper/Resources/trollstorehelper
 
 make_trollhelper_embedded:
+	@$(PYTHON) ./scripts/embed_file_as_objc.py ./_build/TrollStore.tar ./TrollHelper/EmbeddedTrollStoreTar.m
 	@$(MAKE) clean -C ./TrollHelper
-	@$(MAKE) -C ./TrollHelper FINALPACKAGE=1 EMBEDDED_ROOT_HELPER=1 $(MAKECMDGOALS)
+	@$(MAKE) -C ./TrollHelper FINALPACKAGE=1 EMBEDDED_ROOT_HELPER=1 EMBEDDED_TROLLSTORE_TAR=1 $(MAKECMDGOALS)
 	@cp ./TrollHelper/.theos/obj/TrollStorePersistenceHelper.app/TrollStorePersistenceHelper ./_build/PersistenceHelper_Embedded
 	@$(MAKE) clean -C ./TrollHelper
-	@$(MAKE) -C ./TrollHelper FINALPACKAGE=1 EMBEDDED_ROOT_HELPER=1 LEGACY_CT_BUG=1 $(MAKECMDGOALS)
+	@$(MAKE) -C ./TrollHelper FINALPACKAGE=1 EMBEDDED_ROOT_HELPER=1 EMBEDDED_TROLLSTORE_TAR=1 LEGACY_CT_BUG=1 $(MAKECMDGOALS)
 	@cp ./TrollHelper/.theos/obj/TrollStorePersistenceHelper.app/TrollStorePersistenceHelper ./_build/PersistenceHelper_Embedded_Legacy_arm64
 	@$(MAKE) clean -C ./TrollHelper
-	@$(MAKE) -C ./TrollHelper FINALPACKAGE=1 EMBEDDED_ROOT_HELPER=1 CUSTOM_ARCHS=arm64e $(MAKECMDGOALS)
+	@$(MAKE) -C ./TrollHelper FINALPACKAGE=1 EMBEDDED_ROOT_HELPER=1 EMBEDDED_TROLLSTORE_TAR=1 CUSTOM_ARCHS=arm64e $(MAKECMDGOALS)
 	@cp ./TrollHelper/.theos/obj/TrollStorePersistenceHelper.app/TrollStorePersistenceHelper ./_build/PersistenceHelper_Embedded_Legacy_arm64e
 	@$(MAKE) clean -C ./TrollHelper
+	@rm ./TrollHelper/EmbeddedTrollStoreTar.m
 
 assemble_trollstore:
 	@cp ./RootHelper/.theos/obj/trollstorehelper ./TrollStore/.theos/obj/TrollStore.app/trollstorehelper
