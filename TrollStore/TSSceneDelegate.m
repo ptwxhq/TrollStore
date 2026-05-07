@@ -5,22 +5,68 @@
 #import "TSInstallationController.h"
 #import <TSPresentationDelegate.h>
 
-static NSString* trollStoreLaunchInstallURLString(void)
+static NSString* trollStoreLaunchArgumentValue(NSArray<NSString*>* names)
 {
 	NSArray<NSString*>* arguments = NSProcessInfo.processInfo.arguments;
 	for(NSUInteger i = 1; i < arguments.count; i++)
 	{
 		NSString* argument = arguments[i];
-		if([argument hasPrefix:@"--url="] || [argument hasPrefix:@"--install-url="] || [argument hasPrefix:@"--ipa-url="])
+		for(NSString* name in names)
 		{
-			NSRange separatorRange = [argument rangeOfString:@"="];
-			return [argument substringFromIndex:separatorRange.location + 1];
+			NSString* assignmentPrefix = [name stringByAppendingString:@"="];
+			if([argument hasPrefix:assignmentPrefix])
+			{
+				return [argument substringFromIndex:assignmentPrefix.length];
+			}
+			else if([argument isEqualToString:name] && i + 1 < arguments.count)
+			{
+				return arguments[i + 1];
+			}
 		}
-		else if(([argument isEqualToString:@"--url"] || [argument isEqualToString:@"--install-url"] || [argument isEqualToString:@"--ipa-url"]) && i + 1 < arguments.count)
+	}
+
+	return nil;
+}
+
+static NSString* trollStoreLaunchInstallURLString(void)
+{
+	NSString* urlString = trollStoreLaunchArgumentValue(@[@"--url", @"--install-url", @"--ipa-url"]);
+	if(urlString)
+	{
+		return urlString;
+	}
+
+	NSArray<NSString*>* arguments = NSProcessInfo.processInfo.arguments;
+	for(NSUInteger i = 1; i < arguments.count; i++)
+	{
+		NSString* argument = arguments[i];
+		if([argument hasPrefix:@"http://"] || [argument hasPrefix:@"https://"])
 		{
-			return arguments[i + 1];
+			return argument;
 		}
-		else if([argument hasPrefix:@"http://"] || [argument hasPrefix:@"https://"])
+	}
+
+	return nil;
+}
+
+static NSString* trollStoreLaunchInstallPathString(void)
+{
+	NSString* pathString = trollStoreLaunchArgumentValue(@[@"--ipa-path", @"--install-path", @"--path", @"--file"]);
+	if(pathString)
+	{
+		NSURL* fileURL = [NSURL URLWithString:pathString];
+		if(fileURL.isFileURL)
+		{
+			return fileURL.path;
+		}
+		return pathString;
+	}
+
+	NSArray<NSString*>* arguments = NSProcessInfo.processInfo.arguments;
+	for(NSUInteger i = 1; i < arguments.count; i++)
+	{
+		NSString* argument = arguments[i];
+		if([argument hasPrefix:@"/"] && ([argument.pathExtension.lowercaseString isEqualToString:@"ipa"] || [argument.pathExtension.lowercaseString isEqualToString:@"tipa"]))
 		{
 			return argument;
 		}
@@ -169,6 +215,45 @@ static NSString* trollStoreLaunchInstallURLString(void)
 #endif
 }
 
+- (void)handleLaunchInstallFromPath:(NSString*)pathToIPA
+{
+	NSString* resolvedPath = pathToIPA.stringByStandardizingPath;
+	NSFileManager* fileManager = [NSFileManager defaultManager];
+	BOOL isDirectory = NO;
+	if(![fileManager fileExistsAtPath:resolvedPath isDirectory:&isDirectory] || isDirectory)
+	{
+		UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Install Error" message:[NSString stringWithFormat:@"IPA file does not exist: %@", resolvedPath] preferredStyle:UIAlertControllerStyleAlert];
+		UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
+		[errorAlert addAction:closeAction];
+		[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:nil];
+		return;
+	}
+
+	NSString* extension = resolvedPath.pathExtension.lowercaseString;
+	if(![extension isEqualToString:@"ipa"] && ![extension isEqualToString:@"tipa"])
+	{
+		UIAlertController* errorAlert = [UIAlertController alertControllerWithTitle:@"Install Error" message:[NSString stringWithFormat:@"Unsupported file type: %@", resolvedPath] preferredStyle:UIAlertControllerStyleAlert];
+		UIAlertAction* closeAction = [UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleDefault handler:nil];
+		[errorAlert addAction:closeAction];
+		[TSPresentationDelegate presentViewController:errorAlert animated:YES completion:nil];
+		return;
+	}
+
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+		[TSInstallationController installLdidIfNeededWithCompletion:^(BOOL success)
+		{
+			if(success)
+			{
+				dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^
+				{
+					[TSInstallationController handleAppInstallFromFile:resolvedPath completion:nil];
+				});
+			}
+		}];
+	});
+}
+
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)connectionOptions {
 	// Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
 	// If using a storyboard, the `window` property will automatically be initialized and attached to the scene.
@@ -181,7 +266,12 @@ static NSString* trollStoreLaunchInstallURLString(void)
 	[_window makeKeyAndVisible];
 
 	NSString* launchInstallURLString = trollStoreLaunchInstallURLString();
-	if(launchInstallURLString)
+	NSString* launchInstallPathString = trollStoreLaunchInstallPathString();
+	if(launchInstallPathString)
+	{
+		[self handleLaunchInstallFromPath:launchInstallPathString];
+	}
+	else if(launchInstallURLString)
 	{
 		NSURL* launchInstallURL = [NSURL URLWithString:launchInstallURLString];
 		if(launchInstallURL && launchInstallURL.scheme && launchInstallURL.host)
