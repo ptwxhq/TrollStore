@@ -1,8 +1,3 @@
-报错原因是顶层 `make make_fastPathSign` 会把 `MAKECMDGOALS=make_fastPathSign` 传给子目录，导致子目录也执行 `make_fastPathSign`，但子目录没有这个 target。
-
-直接用下面这个 `build.yaml`，不调用顶层内部 target，改成逐目录执行：
-
-```yaml
 name: Build PersistenceHelper Embedded
 
 on:
