@@ -1,3 +1,8 @@
+报错原因是顶层 `make make_fastPathSign` 会把 `MAKECMDGOALS=make_fastPathSign` 传给子目录，导致子目录也执行 `make_fastPathSign`，但子目录没有这个 target。
+
+直接用下面这个 `build.yaml`，不调用顶层内部 target，改成逐目录执行：
+
+```yaml
 name: Build PersistenceHelper Embedded
 
 on:
@@ -43,36 +48,49 @@ jobs:
           export PATH="$THEOS/bin:$PATH"
           LIBARCHIVE_PATH=$(brew --prefix libarchive)
 
-          make clean
+          rm -rf ./_build
+          mkdir -p ./_build
 
-          make pre_build
-          make make_fastPathSign
+          make -C ./Exploits/fastPathSign
 
-          make make_roothelper \
+          make -C ./RootHelper DEBUG=0 \
             ADDITIONAL_LDFLAGS="$LIBARCHIVE_PATH/lib/libarchive.a" \
             THEOS_OBJCCFLAGS="-I$LIBARCHIVE_PATH/include"
 
-          make make_trollstore \
-            FINALPACKAGE=1 \
+          make -C ./TrollStore FINALPACKAGE=1 \
             ADDITIONAL_LDFLAGS="$LIBARCHIVE_PATH/lib/libarchive.a" \
             THEOS_OBJCCFLAGS="-I$LIBARCHIVE_PATH/include"
 
-          make make_trollhelper_package \
-            FINALPACKAGE=1 \
+          make clean -C ./TrollHelper
+          cp ./RootHelper/.theos/obj/trollstorehelper ./TrollHelper/Resources/trollstorehelper
+          make -C ./TrollHelper FINALPACKAGE=1 package \
+            ADDITIONAL_LDFLAGS="$LIBARCHIVE_PATH/lib/libarchive.a" \
+            THEOS_OBJCCFLAGS="-I$LIBARCHIVE_PATH/include"
+          make clean -C ./TrollHelper
+          make -C ./TrollHelper THEOS_PACKAGE_SCHEME=rootless FINALPACKAGE=1 package \
+            ADDITIONAL_LDFLAGS="$LIBARCHIVE_PATH/lib/libarchive.a" \
+            THEOS_OBJCCFLAGS="-I$LIBARCHIVE_PATH/include"
+          rm ./TrollHelper/Resources/trollstorehelper
+
+          cp ./RootHelper/.theos/obj/trollstorehelper ./TrollStore/.theos/obj/TrollStore.app/trollstorehelper
+          cp ./TrollHelper/.theos/obj/TrollStorePersistenceHelper.app/TrollStorePersistenceHelper ./TrollStore/.theos/obj/TrollStore.app/PersistenceHelper
+          cp ./files/ldid ./TrollStore/.theos/obj/TrollStore.app/ldid.bundled
+          COPYFILE_DISABLE=1 tar -czvf ./_build/TrollStore.tar -C ./TrollStore/.theos/obj TrollStore.app
+
+          python3 ./scripts/embed_file_as_objc.py ./_build/TrollStore.tar ./TrollHelper/EmbeddedTrollStoreTar.m
+
+          make clean -C ./TrollHelper
+          make -C ./TrollHelper FINALPACKAGE=1 EMBEDDED_ROOT_HELPER=1 EMBEDDED_TROLLSTORE_TAR=1 \
             ADDITIONAL_LDFLAGS="$LIBARCHIVE_PATH/lib/libarchive.a" \
             THEOS_OBJCCFLAGS="-I$LIBARCHIVE_PATH/include"
 
-          make assemble_trollstore
-
-          make make_trollhelper_embedded \
-            FINALPACKAGE=1 \
-            ADDITIONAL_LDFLAGS="$LIBARCHIVE_PATH/lib/libarchive.a" \
-            THEOS_OBJCCFLAGS="-I$LIBARCHIVE_PATH/include"
+          cp ./TrollHelper/.theos/obj/TrollStorePersistenceHelper.app/TrollStorePersistenceHelper ./_build/PersistenceHelper_Embedded
+          rm ./TrollHelper/EmbeddedTrollStoreTar.m
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PersistenceHelper_Embedded
-          path: |
-            _build/PersistenceHelper_Embedded
+          path: _build/PersistenceHelper_Embedded
           if-no-files-found: error
+```
